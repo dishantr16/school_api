@@ -119,10 +119,7 @@ class OGRGeometry(GDALBase):
     # Pickle routines
     def __getstate__(self):
         srs = self.srs
-        if srs:
-            srs = srs.wkt
-        else:
-            srs = None
+        srs = srs.wkt if srs else None
         return bytes(self.wkb), srs
 
     def __setstate__(self, state):
@@ -285,10 +282,7 @@ class OGRGeometry(GDALBase):
 
     # The SRID property
     def _get_srid(self):
-        srs = self.srs
-        if srs:
-            return srs.srid
-        return None
+        return srs.srid if (srs := self.srs) else None
 
     def _set_srid(self, srid):
         if isinstance(srid, int) or srid is None:
@@ -340,10 +334,7 @@ class OGRGeometry(GDALBase):
     @property
     def wkb(self):
         "Return the WKB representation of the Geometry."
-        if sys.byteorder == 'little':
-            byteorder = 1  # wkbNDR (from ogr_core.h)
-        else:
-            byteorder = 0  # wkbXDR
+        byteorder = 1 if sys.byteorder == 'little' else 0
         sz = self.wkb_size
         # Creating the unsigned character buffer, and passing it in by reference.
         buf = (c_ubyte * sz)()
@@ -539,18 +530,17 @@ class LineString(OGRGeometry):
 
     def __getitem__(self, index):
         "Return the Point at the given index."
-        if 0 <= index < self.point_count:
-            x, y, z = c_double(), c_double(), c_double()
-            capi.get_point(self.ptr, index, byref(x), byref(y), byref(z))
-            dim = self.coord_dim
-            if dim == 1:
-                return (x.value,)
-            elif dim == 2:
-                return (x.value, y.value)
-            elif dim == 3:
-                return (x.value, y.value, z.value)
-        else:
+        if not 0 <= index < self.point_count:
             raise IndexError('Index out of range when accessing points of a line string: %s.' % index)
+        x, y, z = c_double(), c_double(), c_double()
+        capi.get_point(self.ptr, index, byref(x), byref(y), byref(z))
+        dim = self.coord_dim
+        if dim == 1:
+            return (x.value,)
+        elif dim == 2:
+            return (x.value, y.value)
+        elif dim == 3:
+            return (x.value, y.value, z.value)
 
     def __len__(self):
         "Return the number of points in the LineString."
